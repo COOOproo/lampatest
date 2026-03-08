@@ -1,0 +1,218 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TorrServer Global Finder PRO</title>
+
+<style>
+body{
+background:#0f172a;
+color:white;
+font-family:Arial;
+margin:0;
+padding:15px;
+}
+
+h1{
+text-align:center;
+font-size:26px;
+margin-bottom:5px;
+}
+
+p{
+text-align:center;
+color:#94a3b8;
+margin-bottom:20px;
+}
+
+button{
+display:block;
+margin:0 auto 20px auto;
+padding:14px 30px;
+font-size:18px;
+border-radius:10px;
+border:0;
+background:#22c55e;
+color:white;
+cursor:pointer;
+}
+
+#status{
+text-align:center;
+margin-bottom:10px;
+color:#cbd5f5;
+}
+
+.server{
+background:#1e293b;
+padding:12px;
+margin:8px 0;
+border-radius:8px;
+display:flex;
+justify-content:space-between;
+align-items:center;
+font-size:15px;
+}
+
+.copy{
+background:#38bdf8;
+border:0;
+padding:6px 10px;
+border-radius:6px;
+cursor:pointer;
+color:black;
+}
+
+</style>
+</head>
+
+<body>
+
+<h1>TorrServer Global Finder PRO</h1>
+<p>Поиск рабочих TorrServer серверов по всему интернету</p>
+
+<button onclick="startScan()">Обновить серверы</button>
+
+<div id="status">Нажмите кнопку для поиска</div>
+<div id="list"></div>
+
+<script>
+
+const PORT = 8090;
+const MAX_RESULTS = 50;
+const SCAN_SIZE = 2000;
+
+function randomIP(){
+return [
+Math.floor(Math.random()*255)+1,
+Math.floor(Math.random()*255),
+Math.floor(Math.random()*255),
+Math.floor(Math.random()*255)
+].join(".");
+}
+
+function generateTargets(){
+
+let list = [];
+
+for(let i=0;i<SCAN_SIZE;i++){
+list.push(randomIP());
+}
+
+for(let i=1;i<=50;i++){
+list.push("ts"+i+".deploy.cx");
+}
+
+return list;
+
+}
+
+async function getLocation(ip){
+
+try{
+let r = await fetch("https://ipwho.is/"+ip);
+let j = await r.json();
+
+if(j.success){
+return j.country+" / "+j.city;
+}
+
+}catch(e){}
+
+return "Unknown";
+
+}
+
+async function checkServer(host){
+
+let url = "http://"+host+":"+PORT+"/echo";
+
+let start = performance.now();
+
+try{
+
+await fetch(url,{mode:"no-cors"});
+
+let ping = Math.floor(performance.now()-start);
+
+let location="Unknown";
+
+if(/^\d+\.\d+\.\d+\.\d+$/.test(host)){
+location = await getLocation(host);
+}
+
+return {
+server: host+":"+PORT,
+ping: ping,
+location: location
+};
+
+}catch(e){
+return null;
+}
+
+}
+
+async function startScan(){
+
+document.getElementById("list").innerHTML="";
+document.getElementById("status").innerText="Генерация серверов...";
+
+let targets = generateTargets();
+
+document.getElementById("status").innerText="Проверка "+targets.length+" серверов...";
+
+let found = 0;
+
+for(let host of targets){
+
+if(found >= MAX_RESULTS) break;
+
+let res = await checkServer(host);
+
+if(res){
+
+found++;
+
+render(res);
+
+document.getElementById("status").innerText="Найдено серверов: "+found;
+
+}
+
+}
+
+document.getElementById("status").innerText="Поиск завершен. Найдено: "+found;
+
+}
+
+function render(data){
+
+let div = document.createElement("div");
+div.className="server";
+
+let txt = document.createElement("div");
+txt.innerText = data.server+" | "+data.ping+" ms ("+data.location+")";
+
+let btn = document.createElement("button");
+btn.className="copy";
+btn.innerText="копировать";
+
+btn.onclick=()=>{
+navigator.clipboard.writeText(data.server);
+btn.innerText="✓";
+};
+
+div.appendChild(txt);
+div.appendChild(btn);
+
+document.getElementById("list").appendChild(div);
+
+}
+
+</script>
+
+</body>
+</html>
